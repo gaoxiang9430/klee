@@ -1625,8 +1625,9 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     std::string currLoc = ki->info->file + ":" + std::to_string(ki->info->line) ;
 
-    i->dump();
     errs()<<"LOC: "<<ki->info->file<<":"<<ki->info->line<<":"<<ki->info->column<<"\n";
+    i->print(errs(), NULL);
+    errs()<<"\n";
 
     if(currLoc == this->CrashLine) {
 
@@ -3614,6 +3615,9 @@ void Executor::executeMemoryOperation(ExecutionState &state,
   Expr::Width type = (isWrite ? value->getWidth() : 
                      getWidthForLLVMType(target->inst->getType()));
   unsigned bytes = Expr::getMinBytesForWidth(type);
+
+  static int time;
+  time++;
 
   if (SimplifySymIndices) {
     if (!isa<ConstantExpr>(address))
