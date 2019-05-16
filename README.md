@@ -1,4 +1,7 @@
-KLEE Symbolic Virtual Machine
+KLEE for Crash-free Program Repair
+=================================
+
+## KLEE Symbolic Virtual Machine
 =============================
 
 [![Build Status](https://travis-ci.org/klee/klee.svg?branch=master)](https://travis-ci.org/klee/klee)
