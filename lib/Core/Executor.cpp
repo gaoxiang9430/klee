@@ -546,6 +546,8 @@ Executor::setModule(std::vector<std::unique_ptr<llvm::Module>> &modules,
   Context::initialize(TD->isLittleEndian(),
                       (Expr::Width)TD->getPointerSizeInBits());
 
+  this->CrashLine = opts.CrashLine;
+
   return kmodule->module.get();
 }
 
@@ -1615,9 +1617,47 @@ static inline const llvm::fltSemantics * fpWidthToSemantics(unsigned width) {
   }
 }
 
+
+
 void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
-  Instruction *i = ki->inst;
-  switch (i->getOpcode()) {
+
+    Instruction *i = ki->inst;
+
+    std::string currLoc = ki->info->file + ":" + std::to_string(ki->info->line) ;
+
+    i->dump();
+    errs()<<"LOC: "<<ki->info->file<<":"<<ki->info->line<<":"<<ki->info->column<<"\n";
+
+    if(currLoc == this->CrashLine) {
+
+        if(i->getOpcode() == Instruction::Store) { //|| i->getOpcode() == Instruction::Load
+
+            errs()<<"\n>>>> Path Constraints >>>>\n";
+            for (ConstraintManager::const_iterator it = state.constraints.begin();
+                 it != state.constraints.end(); it++) {
+
+                //state.constraints.simplifyExpr(*it)->dump();
+                (*it)->dump();
+            }
+
+            errs()<<"---- Symbolic Val:\n";
+
+            int vnumber = ki->operands[1];
+
+            // Determine if this is a constant or not.
+            if (vnumber >= 0) {
+                unsigned index = vnumber;
+                StackFrame &sf = state.stack.back();
+
+                //storeInst->getPointerOperand()->dump();
+
+                sf.locals[index].value->dump();
+            }
+            errs()<<"<<<<<<<<\n\n";
+        }
+    } // end if(currLoc == this->crashLine)
+
+    switch (i->getOpcode()) {
     // Control flow
   case Instruction::Ret: {
     ReturnInst *ri = cast<ReturnInst>(i);

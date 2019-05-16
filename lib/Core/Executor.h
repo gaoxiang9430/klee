@@ -237,6 +237,9 @@ private:
   /// Optimizes expressions
   ExprOptimizer optimizer;
 
+  /// add for crash-free
+  std::string CrashLine;
+
   llvm::Function* getTargetFunction(llvm::Value *calledVal,
                                     ExecutionState &state);
   

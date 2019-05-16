@@ -137,6 +137,12 @@ namespace {
              cl::init("main"),
              cl::cat(StartCat));
 
+  // new support
+  cl::opt<std::string>
+  CrashLine("crash-line",
+             cl::desc("Line to end symbolic execution"),
+             cl::cat(StartCat));
+
   cl::opt<std::string>
   RunInDir("run-in-dir",
            cl::desc("Change to the given directory before starting execution (default=location of tested file)."),
@@ -1250,7 +1256,7 @@ int main(int argc, char **argv, char **envp) {
   loadedModules.emplace_back(std::move(M));
 
   std::string LibraryDir = KleeHandler::getRunTimeLibraryPath(argv[0]);
-  Interpreter::ModuleOptions Opts(LibraryDir.c_str(), EntryPoint,
+  Interpreter::ModuleOptions Opts(LibraryDir.c_str(), EntryPoint, CrashLine,
                                   /*Optimize=*/OptimizeModule,
                                   /*CheckDivZero=*/CheckDivZero,
                                   /*CheckOvershift=*/CheckOvershift);
