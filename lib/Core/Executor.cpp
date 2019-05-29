@@ -894,6 +894,10 @@ void Executor::branch(ExecutionState &state,
 
 Executor::StatePair 
 Executor::fork(ExecutionState &current, ref<Expr> condition, bool isInternal) {
+
+    errs()<<"######### FORK\n";
+    condition->dump();
+
   Solver::Validity res;
   std::map< ExecutionState*, std::vector<SeedInfo> >::iterator it = 
     seedMap.find(&current);
@@ -1625,13 +1629,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     std::string currLoc = ki->info->file + ":" + std::to_string(ki->info->line) ;
 
-    errs()<<"LOC: "<<ki->info->file<<":"<<ki->info->line<<":"<<ki->info->column<<"\n";
+    //errs()<<"LOC: "<<ki->info->file<<":"<<ki->info->line<<":"<<ki->info->column<<"\n";
     i->print(errs(), NULL);
     errs()<<"\n";
 
     if(currLoc == this->CrashLine) {
 
-        if(i->getOpcode() == Instruction::Store) { //|| i->getOpcode() == Instruction::Load
+        if(i->getOpcode() == Instruction::Store || i->getOpcode() == Instruction::Load) {
 
             errs()<<"\n>>>> Path Constraints >>>>\n";
             for (ConstraintManager::const_iterator it = state.constraints.begin();
@@ -1643,22 +1647,43 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
             errs()<<"---- Symbolic Val:\n";
 
-            int vnumber = ki->operands[1];
+            //state.dumpStack(errs());
 
-            // Determine if this is a constant or not.
+            int needed;
+            if(i->getOpcode() == Instruction::Store){
+                needed = 1;
+            } else{
+                needed = 0;
+            }
+
+            StackFrame &sf = state.stack.back();
+
+//            for (unsigned i=0; i < sf.kf->numRegisters; i++){
+//
+//                if(!sf.locals[i].value.isNull() && sf.locals[i].value->getKind() != Expr::Constant){
+//                    errs()<<"---- "<<i<<"\n";
+//                    sf.locals[i].value->dump();
+//                }
+//            }
+
+
+            KFunction* kfunc = ki->getParentKFunc();
+
+            int vnumber = ki->operands[needed];
             if (vnumber >= 0) {
                 unsigned index = vnumber;
-                StackFrame &sf = state.stack.back();
+                if(sf.locals[index].value->getKind() != Expr::Constant){
+                    errs()<<"---- "<<index<<"\n";
+                    kfunc->reg2KInst[index]->inst->dump();
 
-                //storeInst->getPointerOperand()->dump();
-
-                sf.locals[index].value->dump();
+                    sf.locals[index].value->dump();
+                }
             }
             errs()<<"<<<<<<<<\n\n";
         }
     } // end if(currLoc == this->crashLine)
 
-    switch (i->getOpcode()) {
+  switch (i->getOpcode()) {
     // Control flow
   case Instruction::Ret: {
     ReturnInst *ri = cast<ReturnInst>(i);
@@ -3615,9 +3640,6 @@ void Executor::executeMemoryOperation(ExecutionState &state,
   Expr::Width type = (isWrite ? value->getWidth() : 
                      getWidthForLLVMType(target->inst->getType()));
   unsigned bytes = Expr::getMinBytesForWidth(type);
-
-  static int time;
-  time++;
 
   if (SimplifySymIndices) {
     if (!isa<ConstantExpr>(address))

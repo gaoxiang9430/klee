@@ -487,6 +487,9 @@ KFunction::KFunction(llvm::Function *_function,
       ki->inst = inst;
       ki->dest = registerMap[inst];
 
+      ki->parentKFunc = this;
+      this->reg2KInst[ki->dest] = ki;
+
       if (isa<CallInst>(it) || isa<InvokeInst>(it)) {
         CallSite cs(inst);
         unsigned numArgs = cs.arg_size();

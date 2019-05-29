@@ -211,7 +211,7 @@ bool SpecialFunctionHandler::handle(ExecutionState &state,
                                     KInstruction *target,
                                     std::vector< ref<Expr> > &arguments) {
   handlers_ty::iterator it = handlers.find(f);
-  if (it != handlers.end()) {    
+  if (it != handlers.end()) {
     Handler h = it->second.first;
     bool hasReturnValue = it->second.second;
      // FIXME: Check this... add test?
