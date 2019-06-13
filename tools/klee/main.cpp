@@ -125,6 +125,20 @@ namespace {
                 cl::desc("Write .sym.path files for each test case (default=false)"),
                 cl::cat(TestCaseCat));
 
+  /*** Crash-free-fix options ***/
+  cl::OptionCategory FixerCat("Fixer options",
+                              "These options are used for the crash-free-fix.");
+
+
+  cl::opt<std::string> CrashLine("crash-line",
+                    cl::desc("Line to end symbolic execution"),
+                    cl::cat(FixerCat));
+
+  cl::opt<std::string> ConstraintsFile(
+          "constraints-file",
+          cl::desc("Set the file to write the weakest pre-condtions"),
+          cl::init("constraints.txt"),
+          cl::cat(FixerCat));
 
   /*** Startup options ***/
 
@@ -135,12 +149,6 @@ namespace {
   EntryPoint("entry-point",
              cl::desc("Function in which to start execution (default=main)"),
              cl::init("main"),
-             cl::cat(StartCat));
-
-  // new support
-  cl::opt<std::string>
-  CrashLine("crash-line",
-             cl::desc("Line to end symbolic execution"),
              cl::cat(StartCat));
 
   cl::opt<std::string>
@@ -1256,7 +1264,7 @@ int main(int argc, char **argv, char **envp) {
   loadedModules.emplace_back(std::move(M));
 
   std::string LibraryDir = KleeHandler::getRunTimeLibraryPath(argv[0]);
-  Interpreter::ModuleOptions Opts(LibraryDir.c_str(), EntryPoint, CrashLine,
+  Interpreter::ModuleOptions Opts(LibraryDir.c_str(), EntryPoint, CrashLine, ConstraintsFile,
                                   /*Optimize=*/OptimizeModule,
                                   /*CheckDivZero=*/CheckDivZero,
                                   /*CheckOvershift=*/CheckOvershift);
