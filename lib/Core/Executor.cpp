@@ -3992,9 +3992,12 @@ void Executor::runFunctionAsMain(Function *f,
   run(*state);
 
   // dump WPC
-  errs()<<"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-  this->weakestPreCond->dump();
-  errs()<<"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+  if(!this->weakestPreCond.isNull()) {
+      errs()<<"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+      this->weakestPreCond->dump();
+      errs()<<"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+  }
+
 
   delete processTree;
   processTree = 0;
