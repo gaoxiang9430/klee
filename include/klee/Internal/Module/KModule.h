@@ -54,6 +54,9 @@ namespace klee {
     bool trackCoverage;
 
   public:
+
+    std::map<unsigned, KInstruction*> reg2KInst;
+
     explicit KFunction(llvm::Function*, KModule *);
     KFunction(const KFunction &) = delete;
     KFunction &operator=(const KFunction &) = delete;

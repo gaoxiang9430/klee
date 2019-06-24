@@ -15,6 +15,7 @@
 
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/raw_ostream.h"
+#include "KModule.h"
 
 #include <vector>
 
@@ -31,6 +32,9 @@ namespace klee {
   /// KInstruction - Intermediate instruction representation used
   /// during execution.
   struct KInstruction {
+
+    KFunction *parentKFunc;
+
     llvm::Instruction *inst;    
     const InstructionInfo *info;
 
@@ -46,6 +50,7 @@ namespace klee {
     virtual ~KInstruction();
     std::string getSourceLocation() const;
 
+    KFunction* getParentKFunc() const;
   };
 
   struct KGEPInstruction : KInstruction {

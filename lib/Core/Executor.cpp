@@ -87,6 +87,8 @@
 #include <string>
 #include <sys/mman.h>
 #include <vector>
+#include <iostream>
+#include <set>
 
 using namespace llvm;
 using namespace klee;
@@ -403,7 +405,6 @@ cl::opt<bool> DebugCheckForImpliedValues(
     "debug-check-for-implied-values", cl::init(false),
     cl::desc("Debug the implied value optimization"),
     cl::cat(DebugCat));
-
 } // namespace
 
 namespace klee {
@@ -484,6 +485,7 @@ Executor::Executor(LLVMContext &ctx, const InterpreterOptions &opts,
                  error.c_str());
     }
   }
+
 }
 
 llvm::Module *
@@ -547,6 +549,7 @@ Executor::setModule(std::vector<std::unique_ptr<llvm::Module>> &modules,
                       (Expr::Width)TD->getPointerSizeInBits());
 
   this->CrashLine = opts.CrashLine;
+  this->ConstraintsFile = opts.ConstraintsFile;
 
   return kmodule->module.get();
 }
@@ -894,6 +897,10 @@ void Executor::branch(ExecutionState &state,
 
 Executor::StatePair 
 Executor::fork(ExecutionState &current, ref<Expr> condition, bool isInternal) {
+
+    //errs()<<"######### FORK\n";
+    //condition->dump();
+
   Solver::Validity res;
   std::map< ExecutionState*, std::vector<SeedInfo> >::iterator it = 
     seedMap.find(&current);
@@ -1155,7 +1162,7 @@ void Executor::addConstraint(ExecutionState &state, ref<Expr> condition) {
                                  ConstantExpr::alloc(1, Expr::Bool));
 }
 
-const Cell& Executor::eval(KInstruction *ki, unsigned index, 
+const Cell& Executor::eval(KInstruction *ki, unsigned index,
                            ExecutionState &state) const {
   assert(index < ki->inst->getNumOperands());
   int vnumber = ki->operands[index];
@@ -1617,48 +1624,128 @@ static inline const llvm::fltSemantics * fpWidthToSemantics(unsigned width) {
   }
 }
 
+static bool hasModelVersion(ref<Expr> expr){
+    std::vector<const Array *> objects;
+    findSymbolicObjects(expr, objects);
+    for(auto obj = objects.begin(); obj != objects.end(); obj++){
+        //errs()<<"NAME: "<<(*obj)->name<<"\n";
+        if((*obj)->name == "model_version"){
+            return true;
+        }
+    }
+    return false;
+}
 
 
 void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     Instruction *i = ki->inst;
 
-    std::string currLoc = ki->info->file + ":" + std::to_string(ki->info->line) ;
+    std::string currFile = ki->info->file;
+    size_t idx = currFile.find_last_of("/");
+    currFile = currFile.substr(idx + 1);
 
-    errs()<<"LOC: "<<ki->info->file<<":"<<ki->info->line<<":"<<ki->info->column<<"\n";
-    i->print(errs(), NULL);
-    errs()<<"\n";
+    std::string currLoc = currFile + ":" + std::to_string(ki->info->line) ;
 
     if(currLoc == this->CrashLine) {
 
-        if(i->getOpcode() == Instruction::Store) { //|| i->getOpcode() == Instruction::Load
+        if(i->getOpcode() == Instruction::Store || i->getOpcode() == Instruction::Load) {
 
-            errs()<<"\n>>>> Path Constraints >>>>\n";
+            errs()<<"LOC: "<<currFile<<":"<<ki->info->line<<":"<<ki->info->column<<"\n";
+            i->print(errs(), NULL);
+            errs()<<"\n";
+
+            std::string str;
+            llvm::raw_string_ostream rso(str);
+
+            rso<<"\n>>>> Path Constraints >>>>\n";
+
+            //this->weakestPreCond = WPCForThisPath.simplifyExpr(this->weakestPreCond);
+            //std::set<ref<Expr>>
+
+            ref<Expr> wpcForCurrPath;
+
+            for (ConstraintManager::const_iterator it = state.constraints.begin(); it != state.constraints.end(); it++) {
+                errs()<<"-----\n";
+                ref<Expr> current = *it;
+                current->dump();
+                // remove model version
+                if(hasModelVersion(current)){
+                    continue;
+                }
+
+                if(wpcForCurrPath.isNull()){
+                    wpcForCurrPath = *it;
+                    continue;
+                }
+
+                wpcForCurrPath = AndExpr::create(wpcForCurrPath, current);
+            }
+
+            // merge with the whole wpc
+            if(this->weakestPreCond.isNull()){
+                this->weakestPreCond = wpcForCurrPath;
+            } else if(this->weakestPreCond != wpcForCurrPath){
+                bool remain = true;
+                if(this->weakestPreCond->getKind() == Expr::Or){
+                    if(this->weakestPreCond->getKid(0) == wpcForCurrPath || this->weakestPreCond->getKid(1) == wpcForCurrPath){
+                        remain = false;
+                    }
+                }
+                if(remain){
+                    this->weakestPreCond = OrExpr::create(this->weakestPreCond, wpcForCurrPath);
+                }
+            }
+
             for (ConstraintManager::const_iterator it = state.constraints.begin();
                  it != state.constraints.end(); it++) {
-
                 //state.constraints.simplifyExpr(*it)->dump();
-                (*it)->dump();
+                (*it)->print(rso);
+                rso<<"\n";
             }
 
-            errs()<<"---- Symbolic Val:\n";
+            rso<<"---- Symbolic Val:\n";
 
-            int vnumber = ki->operands[1];
+            //state.dumpStack(errs());
 
-            // Determine if this is a constant or not.
+            int needed;
+            if(i->getOpcode() == Instruction::Store){
+                needed = 1;
+            } else{
+                needed = 0;
+            }
+
+            StackFrame &sf = state.stack.back();
+
+//            for (unsigned i=0; i < sf.kf->numRegisters; i++){
+//
+//                if(!sf.locals[i].value.isNull() && sf.locals[i].value->getKind() != Expr::Constant){
+//                    errs()<<"---- "<<i<<"\n";
+//                    sf.locals[i].value->dump();
+//                }
+//            }
+
+
+            KFunction* kfunc = ki->getParentKFunc();
+
+            int vnumber = ki->operands[needed];
             if (vnumber >= 0) {
-                unsigned index = vnumber;
-                StackFrame &sf = state.stack.back();
-
-                //storeInst->getPointerOperand()->dump();
-
-                sf.locals[index].value->dump();
+                if(sf.locals[vnumber].value->getKind() != Expr::Constant){
+                    //errs()<<"---- "<<index<<"\n";
+                    kfunc->reg2KInst[vnumber]->inst->dump();
+                    sf.locals[vnumber].value->print(rso);
+                    rso<<"\n";
+                }
             }
-            errs()<<"<<<<<<<<\n\n";
+            rso<<"<<<<<<<<\n\n";
+
+            std::ofstream outfile;
+            outfile.open(this->ConstraintsFile, std::ios_base::app);
+            outfile << rso.str();
         }
     } // end if(currLoc == this->crashLine)
 
-    switch (i->getOpcode()) {
+  switch (i->getOpcode()) {
     // Control flow
   case Instruction::Ret: {
     ReturnInst *ri = cast<ReturnInst>(i);
@@ -3616,9 +3703,6 @@ void Executor::executeMemoryOperation(ExecutionState &state,
                      getWidthForLLVMType(target->inst->getType()));
   unsigned bytes = Expr::getMinBytesForWidth(type);
 
-  static int time;
-  time++;
-
   if (SimplifySymIndices) {
     if (!isa<ConstantExpr>(address))
       address = state.constraints.simplifyExpr(address);
@@ -3906,6 +3990,15 @@ void Executor::runFunctionAsMain(Function *f,
   processTree = new PTree(state);
   state->ptreeNode = processTree->root;
   run(*state);
+
+  // dump WPC
+  if(!this->weakestPreCond.isNull()) {
+      errs()<<"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+      this->weakestPreCond->dump();
+      errs()<<"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+  }
+
+
   delete processTree;
   processTree = 0;
 

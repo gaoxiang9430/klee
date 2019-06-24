@@ -25,3 +25,11 @@ std::string KInstruction::getSourceLocation() const {
            std::to_string(info->column);
   else return "[no debug info]";
 }
+
+
+KFunction* KInstruction::getParentKFunc() const {
+  if(this->parentKFunc == NULL){
+    abort();
+  }
+  return this->parentKFunc;
+}
