@@ -31,7 +31,9 @@
 #include <fcntl.h>
 #include <stdarg.h>
 #include <assert.h>
+#ifndef __FreeBSD__
 #include <sys/vfs.h>
+#endif
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/ioctl.h>
@@ -44,12 +46,12 @@
 
 int open(const char *pathname, int flags, ...) {
   mode_t mode = 0;
-  
+
   if (flags & O_CREAT) {
     /* get mode */
     va_list ap;
     va_start(ap, flags);
-    mode = va_arg(ap, mode_t);
+    mode = va_arg(ap, int);
     va_end(ap);
   }
 
@@ -58,12 +60,12 @@ int open(const char *pathname, int flags, ...) {
 
 int openat(int fd, const char *pathname, int flags, ...) {
   mode_t mode = 0;
-  
+
   if (flags & O_CREAT) {
     /* get mode */
     va_list ap;
     va_start(ap, flags);
-    mode = va_arg(ap, mode_t);
+    mode = va_arg(ap, int);
     va_end(ap);
   }
 
