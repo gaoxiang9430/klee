@@ -1655,11 +1655,6 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
             i->print(errs(), NULL);
             errs()<<"\n";
 
-            std::string str;
-            llvm::raw_string_ostream rso(str);
-
-            rso<<"\n>>>> Path Constraints >>>>\n";
-
             //this->weakestPreCond = WPCForThisPath.simplifyExpr(this->weakestPreCond);
             //std::set<ref<Expr>>
 
@@ -1696,7 +1691,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
                     this->weakestPreCond = OrExpr::create(this->weakestPreCond, wpcForCurrPath);
                 }
             }
-
+#if 0
             for (ConstraintManager::const_iterator it = state.constraints.begin();
                  it != state.constraints.end(); it++) {
                 //state.constraints.simplifyExpr(*it)->dump();
@@ -1717,13 +1712,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
             StackFrame &sf = state.stack.back();
 
-//            for (unsigned i=0; i < sf.kf->numRegisters; i++){
-//
-//                if(!sf.locals[i].value.isNull() && sf.locals[i].value->getKind() != Expr::Constant){
-//                    errs()<<"---- "<<i<<"\n";
-//                    sf.locals[i].value->dump();
-//                }
-//            }
+            for (unsigned i=0; i < sf.kf->numRegisters; i++){
+
+                if(!sf.locals[i].value.isNull() && sf.locals[i].value->getKind() != Expr::Constant){
+                    errs()<<"---- "<<i<<"\n";
+                    sf.locals[i].value->dump();
+                }
+            }
 
 
             KFunction* kfunc = ki->getParentKFunc();
@@ -1742,6 +1737,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
             std::ofstream outfile;
             outfile.open(this->ConstraintsFile, std::ios_base::app);
             outfile << rso.str();
+#endif
         }
     } // end if(currLoc == this->crashLine)
 
@@ -3995,6 +3991,17 @@ void Executor::runFunctionAsMain(Function *f,
   if(!this->weakestPreCond.isNull()) {
       errs()<<"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
       this->weakestPreCond->dump();
+
+      std::string str;
+      llvm::raw_string_ostream rso(str);
+
+      this->weakestPreCond->print(rso);
+      rso<<"\n";
+
+      std::ofstream outfile;
+      outfile.open(this->ConstraintsFile, std::ios_base::trunc);
+      outfile << rso.str();
+
       errs()<<"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
   }
 
