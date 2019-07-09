@@ -71,6 +71,8 @@
 #include "llvm/Support/Process.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "llvm/IR/DebugInfo.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cerrno>
@@ -1627,11 +1629,25 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     Instruction *i = ki->inst;
 
+    Function* F = i->getFunction();
+
+    std::string funName = F->getName().str();
+
+
     std::string currFile = ki->info->file;
     size_t idx = currFile.find_last_of("/");
     currFile = currFile.substr(idx + 1);
 
     std::string currLoc = currFile + ":" + std::to_string(ki->info->line) ;
+
+//    if(funName == "foo"){
+//        i->dump();
+//        std::string prefix = "tmp_";
+//        if(curName.substr(0, prefix.length()) != prefix){
+//            errs()<<"NAME: "<<curName<<"\n";
+//        }
+//        errs()<<currLoc<<" : "<<this->CrashLine<<"\n";
+//    }
 
     if(currLoc == this->CrashLine) {
 
@@ -1643,6 +1659,10 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
             //this->weakestPreCond = WPCForThisPath.simplifyExpr(this->weakestPreCond);
             //std::set<ref<Expr>>
+
+            //std::string str;
+            //llvm::raw_string_ostream rso(str);
+            errs()<<"\n>>>> Path Constraints >>>>\n";
 
             ref<Expr> wpcForCurrPath;
 
@@ -1661,20 +1681,23 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
                 }
 
                 wpcForCurrPath = AndExpr::create(wpcForCurrPath, current);
+                wpcForCurrPath = optimizer.optimizeExpr(wpcForCurrPath, false);
             }
 
             // merge with the whole wpc
-            if(this->weakestPreCond.isNull()){
-                this->weakestPreCond = wpcForCurrPath;
-            } else if(this->weakestPreCond != wpcForCurrPath){
+            if(weakestPreCond.isNull()){
+                weakestPreCond = wpcForCurrPath;
+            } else if(weakestPreCond != wpcForCurrPath){
                 bool remain = true;
-                if(this->weakestPreCond->getKind() == Expr::Or){
-                    if(this->weakestPreCond->getKid(0) == wpcForCurrPath || this->weakestPreCond->getKid(1) == wpcForCurrPath){
+                if(weakestPreCond->getKind() == Expr::Or){
+                    if(weakestPreCond->getKid(0) == wpcForCurrPath || weakestPreCond->getKid(1) == wpcForCurrPath){
                         remain = false;
                     }
                 }
                 if(remain){
-                    this->weakestPreCond = OrExpr::create(this->weakestPreCond, wpcForCurrPath);
+                    weakestPreCond = OrExpr::create(weakestPreCond, wpcForCurrPath);
+
+                    weakestPreCond = optimizer.optimizeExpr(weakestPreCond, false);
                 }
             }
 #if 0
@@ -1690,9 +1713,9 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
             //state.dumpStack(errs());
 
             int needed;
-            if(i->getOpcode() == Instruction::Store){
+            if(i->getOpcode() == Instruction::Store) {
                 needed = 1;
-            } else{
+            } else {
                 needed = 0;
             }
 
@@ -1705,7 +1728,6 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
                     sf.locals[i].value->dump();
                 }
             }
-
 
             KFunction* kfunc = ki->getParentKFunc();
 
@@ -4228,3 +4250,6 @@ Interpreter *Interpreter::create(LLVMContext &ctx, const InterpreterOptions &opt
                                  InterpreterHandler *ih) {
   return new Executor(ctx, opts, ih);
 }
+
+
+

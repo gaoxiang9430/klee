@@ -295,7 +295,7 @@ private:
 #endif
 
   void printRead(const ReadExpr *re, PrintContext &PC, unsigned indent) {
-    print(re->index, PC);
+    //print(re->index, PC);
     printSeparator(PC, isVerySimple(re->index), indent);
     printUpdateList(re->updates, PC);
   }
@@ -380,55 +380,53 @@ public:
     if (ConstantExpr *CE = dyn_cast<ConstantExpr>(e))
       printConst(CE, PC, printConstWidth);
     else {
-      std::map<ref<Expr>, unsigned>::iterator it = bindings.find(e);
-      if (it!=bindings.end()) {
-        PC << 'N' << it->second;
-      } else {
-        if (!hasScan || shouldPrint.count(e)) {
-          PC << 'N' << counter << ':';
-          bindings.insert(std::make_pair(e, counter++));
-        }
-
-        // Detect multibyte reads.
-        // FIXME: Hrm. One problem with doing this is that we are
-        // masking the sharing of the indices which aren't
-        // visible. Need to think if this matters... probably not
-        // because if they are offset reads then its either constant,
-        // or they are (base + offset) and base will get printed with
-        // a declaration.
-        if (PCMultibyteReads && e->getKind() == Expr::Concat) {
-	  const ReadExpr *base = hasOrderedReads(e, -1);
-	  const bool isLSB = (base != nullptr);
-	  if (!isLSB)
-	    base = hasOrderedReads(e, 1);
-	  if (base) {
-	    PC << "(Read" << (isLSB ? "LSB" : "MSB");
-	    printWidth(PC, e);
-	    PC << ' ';
-	    printRead(base, PC, PC.pos);
-	    PC << ')';
-	    return;
-	  }
-        }
-
-	PC << '(' << e->getKind();
-        printWidth(PC, e);
-        PC << ' ';
-
-        // Indent at first argument and dispatch to appropriate print
-        // routine for exprs which require special handling.
-        unsigned indent = PC.pos;
-        if (const ReadExpr *re = dyn_cast<ReadExpr>(e)) {
-          printRead(re, PC, indent);
-        } else if (const ExtractExpr *ee = dyn_cast<ExtractExpr>(e)) {
-          printExtract(ee, PC, indent);
-        } else if (e->getKind() == Expr::Concat || e->getKind() == Expr::SExt)
-	  printExpr(e.get(), PC, indent, true);
-	else
-          printExpr(e.get(), PC, indent);	
-        PC << ")";
+      if(e->getKind() == Expr::SExt || e->getKind() == Expr::ZExt){
+        print(e->getKid(0), PC, printConstWidth);
+        return;
       }
+
+
+      // Detect multibyte reads.
+      // FIXME: Hrm. One problem with doing this is that we are
+      // masking the sharing of the indices which aren't
+      // visible. Need to think if this matters... probably not
+      // because if they are offset reads then its either constant,
+      // or they are (base + offset) and base will get printed with
+      // a declaration.
+      if (PCMultibyteReads && e->getKind() == Expr::Concat) {
+        const ReadExpr *base = hasOrderedReads(e, -1);
+        const bool isLSB = (base != nullptr);
+        if (!isLSB)
+          base = hasOrderedReads(e, 1);
+        if (base) {
+          //PC << "(Read" << (isLSB ? "LSB" : "MSB");
+          //printWidth(PC, e);
+          //PC << '(';
+          printRead(base, PC, PC.pos);
+          //PC << ')';
+          return;
+        }
+      }
+
+      PC << '(' << e->getKind();
+      //printWidth(PC, e);
+      PC << ' ';
+
+      // Indent at first argument and dispatch to appropriate print
+      // routine for exprs which require special handling.
+      unsigned indent = PC.pos;
+      if (const ReadExpr *re = dyn_cast<ReadExpr>(e)) {
+        printRead(re, PC, indent);
+      } else if (const ExtractExpr *ee = dyn_cast<ExtractExpr>(e)) {
+        printExtract(ee, PC, indent);
+      } else if (e->getKind() == Expr::Concat || e->getKind() == Expr::SExt) {
+        printExpr(e.get(), PC, indent, true);
+      } else {
+          printExpr(e.get(), PC, indent);
+      }
+      PC << ")";
     }
+
   }
 
   /* Public utility functions */
