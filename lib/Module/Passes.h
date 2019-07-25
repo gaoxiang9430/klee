@@ -19,6 +19,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 
+#include <set>
+
 namespace llvm {
 class Function;
 class Instruction;
@@ -26,6 +28,7 @@ class Module;
 class DataLayout;
 class TargetLowering;
 class Type;
+class AnalysisUsage;
 } // namespace llvm
 
 namespace klee {
@@ -186,6 +189,26 @@ public:
   OptNonePass() : llvm::ModulePass(ID) {}
   bool runOnModule(llvm::Module &M) override;
 };
+
+
+class LoopPrimary : public llvm::ModulePass {
+private:
+    std::string FixLine;
+    std::string CrashLine;
+
+    std::set<llvm::Instruction*>* TermInsts;
+public:
+    static char ID;
+    LoopPrimary() : ModulePass(ID) { }
+    LoopPrimary(std::string _FL, std::string _CL, std::set<llvm::Instruction*>* _TermInsts)
+                : ModulePass(ID), FixLine(_FL), CrashLine(_CL), TermInsts(_TermInsts) { }
+
+    bool runOnModule(llvm::Module &M) override;
+    void getAnalysisUsage(llvm::AnalysisUsage &Info) const override;
+};
+
+llvm::ModulePass *createLoopPrimary(std::string _FL, std::string _CL, std::set<llvm::Instruction*> *TermInsts);
+
 } // namespace klee
 
 #endif

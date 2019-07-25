@@ -56,6 +56,7 @@ public:
     std::string EntryPoint;
 
     std::string CrashLine;
+    std::string FixLine;
     std::string ConstraintsFile;
 
     bool Optimize;
@@ -65,11 +66,13 @@ public:
     ModuleOptions(const std::string &_LibraryDir,
                   const std::string &_EntryPoint,
                   const std::string &_CrashLine,
+                  const std::string &_FixLine,
                   const std::string &_ConstraintsFile,
                   bool _Optimize,
                   bool _CheckDivZero, bool _CheckOvershift)
-        : LibraryDir(_LibraryDir), EntryPoint(_EntryPoint), CrashLine(_CrashLine), ConstraintsFile(_ConstraintsFile), Optimize(_Optimize),
-          CheckDivZero(_CheckDivZero), CheckOvershift(_CheckOvershift) {}
+        : LibraryDir(_LibraryDir), EntryPoint(_EntryPoint),
+          CrashLine(_CrashLine), FixLine(_FixLine), ConstraintsFile(_ConstraintsFile),
+          Optimize(_Optimize), CheckDivZero(_CheckDivZero), CheckOvershift(_CheckOvershift) {}
   };
 
   enum LogType

@@ -42,6 +42,9 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Transforms/Scalar.h"
+
+#include "llvm/Analysis/LoopInfo.h"
+
 #if LLVM_VERSION_CODE >= LLVM_VERSION(8, 0)
 #include "llvm/Transforms/Scalar/Scalarizer.h"
 #endif
@@ -288,6 +291,15 @@ void KModule::optimiseAndPrepare(
   pm3.add(new IntrinsicCleanerPass(*targetData));
   pm3.add(new PhiCleanerPass());
   pm3.run(*module);
+
+    if(opts.FixLine != "") {
+        legacy::PassManager pm4;
+
+        pm4.add(new llvm::LoopInfoWrapperPass());
+        pm4.add(createLoopPrimary(opts.FixLine, opts.CrashLine, &termInsts));
+        pm4.run(*module);
+    }
+
 }
 
 void KModule::manifest(InterpreterHandler *ih, bool forceSourceOutput) {

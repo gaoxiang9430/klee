@@ -127,14 +127,23 @@ namespace {
 
 
   cl::opt<std::string> CrashLine("crash-line",
-                    cl::desc("Line to end symbolic execution"),
-                    cl::cat(FixerCat));
+                                  cl::desc("Line to end symbolic execution"),
+                                  cl::init(""),
+                                  cl::cat(FixerCat));
 
-  cl::opt<std::string> ConstraintsFile(
-          "constraints-file",
-          cl::desc("Set the file to write the weakest pre-condtions"),
-          cl::init("constraints.txt"),
-          cl::cat(FixerCat));
+  cl::opt<std::string> ConstraintsFile("constraints-file",
+                                        cl::desc("Set the file to write the weakest pre-condtions"),
+                                        cl::init("constraints.txt"),
+                                        cl::cat(FixerCat));
+
+  cl::opt<std::string> FixLine("fix-line",
+                               cl::desc("Line to start symbolic execution"),
+                               cl::init(""),
+                               cl::cat(FixerCat));
+
+  cl::opt<bool> KeepMoudleLL("keep-module-ll",
+                           cl::desc("Reserve the module .ll file for the executor."),
+                           cl::cat(FixerCat));
 
   /*** Startup options ***/
 
@@ -1248,7 +1257,7 @@ int main(int argc, char **argv, char **envp) {
   loadedModules.emplace_back(std::move(M));
 
   std::string LibraryDir = KleeHandler::getRunTimeLibraryPath(argv[0]);
-  Interpreter::ModuleOptions Opts(LibraryDir.c_str(), EntryPoint, CrashLine, ConstraintsFile,
+  Interpreter::ModuleOptions Opts(LibraryDir.c_str(), EntryPoint, CrashLine, FixLine, ConstraintsFile,
                                   /*Optimize=*/OptimizeModule,
                                   /*CheckDivZero=*/CheckDivZero,
                                   /*CheckOvershift=*/CheckOvershift);
@@ -1484,6 +1493,17 @@ int main(int argc, char **argv, char **envp) {
                    sys::StrError(errno).c_str());
       }
     }
+
+    if(KeepMoudleLL){
+        if(!finalModule->getName().startswith("/usr/")) {
+            std::string outName(finalModule->getName());
+            outName += ".klee.ll";
+            std::error_code errInfo;
+            raw_fd_ostream out(outName.c_str(), errInfo, sys::fs::F_None);
+            finalModule->print(out, nullptr);
+        }
+    }
+
     interpreter->runFunctionAsMain(mainFn, pArgc, pArgv, pEnvp);
 
     while (!seeds.empty()) {

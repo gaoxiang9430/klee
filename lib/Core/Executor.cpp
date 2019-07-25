@@ -491,6 +491,11 @@ Executor::setModule(std::vector<std::unique_ptr<llvm::Module>> &modules,
   assert(!kmodule && !modules.empty() &&
          "can only register one module"); // XXX gross
 
+
+    this->CrashLine = opts.CrashLine;
+    this->FixLine = opts.FixLine;
+    this->ConstraintsFile = opts.ConstraintsFile;
+
   kmodule = std::unique_ptr<KModule>(new KModule());
 
   // Preparing the final module happens in multiple stages
@@ -534,7 +539,7 @@ Executor::setModule(std::vector<std::unique_ptr<llvm::Module>> &modules,
   specialFunctionHandler->bind();
 
   if (StatsTracker::useStatistics() || userSearcherRequiresMD2U()) {
-    statsTracker = 
+    statsTracker =
       new StatsTracker(*this,
                        interpreterHandler->getOutputFilename("assembly.ll"),
                        userSearcherRequiresMD2U());
@@ -544,9 +549,6 @@ Executor::setModule(std::vector<std::unique_ptr<llvm::Module>> &modules,
   DataLayout *TD = kmodule->targetData.get();
   Context::initialize(TD->isLittleEndian(),
                       (Expr::Width)TD->getPointerSizeInBits());
-
-  this->CrashLine = opts.CrashLine;
-  this->ConstraintsFile = opts.ConstraintsFile;
 
   return kmodule->module.get();
 }
@@ -1633,43 +1635,49 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     std::string funName = F->getName().str();
 
-
     std::string currFile = ki->info->file;
     size_t idx = currFile.find_last_of("/");
-    currFile = currFile.substr(idx + 1);
+
+    if (idx != std::string::npos)
+        currFile = currFile.substr(idx + 1);
 
     std::string currLoc = currFile + ":" + std::to_string(ki->info->line) ;
 
-//    if(funName == "foo"){
+
+//    if(funName == "readSeparateTilesIntoBuffer"){
+//        errs()<<currLoc<<"\n";
 //        i->dump();
-//        std::string prefix = "tmp_";
-//        if(curName.substr(0, prefix.length()) != prefix){
-//            errs()<<"NAME: "<<curName<<"\n";
-//        }
-//        errs()<<currLoc<<" : "<<this->CrashLine<<"\n";
 //    }
+
+    if (this->kmodule.get()->termInsts.find(i) != this->kmodule.get()->termInsts.end()) {
+        klee_warning("Early terminate at %s", currLoc.c_str());
+        i->dump();
+        terminateState(state);
+    }
 
     if(currLoc == this->CrashLine) {
 
         if(i->getOpcode() == Instruction::Store || i->getOpcode() == Instruction::Load) {
 
-            errs()<<"LOC: "<<currFile<<":"<<ki->info->line<<":"<<ki->info->column<<"\n";
-            i->print(errs(), NULL);
-            errs()<<"\n";
+            //errs()<<"LOC: "<<currFile<<":"<<ki->info->line<<":"<<ki->info->column<<"\n";
+            //i->print(errs(), NULL);
+            //errs()<<"\n";
 
             //this->weakestPreCond = WPCForThisPath.simplifyExpr(this->weakestPreCond);
             //std::set<ref<Expr>>
 
             //std::string str;
             //llvm::raw_string_ostream rso(str);
-            errs()<<"\n>>>> Path Constraints >>>>\n";
+
+            //errs()<<"\n>>>> Path Constraints >>>>\n";
 
             ref<Expr> wpcForCurrPath;
 
             for (ConstraintManager::const_iterator it = state.constraints.begin(); it != state.constraints.end(); it++) {
-                errs()<<"-----\n";
+                //errs()<<"-----\n";
                 ref<Expr> current = *it;
-                current->dump();
+                //current->dump();
+
                 // remove model version
                 if(hasModelVersion(current)){
                     continue;
@@ -1700,6 +1708,8 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
                     weakestPreCond = optimizer.optimizeExpr(weakestPreCond, false);
                 }
             }
+
+
 #if 0
             for (ConstraintManager::const_iterator it = state.constraints.begin();
                  it != state.constraints.end(); it++) {
@@ -2854,7 +2864,8 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
   default:
     terminateStateOnExecError(state, "illegal instruction");
     break;
-  }
+  }// end switch
+
 }
 
 void Executor::updateStates(ExecutionState *current) {

@@ -237,13 +237,17 @@ private:
   /// Optimizes expressions
   ExprOptimizer optimizer;
 
-  /// add by wb, for crash-free-fixer
+  /// add by wb
+  /// for crash-free-fixer
   std::string CrashLine;
+  /// point out fix line
+  std::string FixLine;
   /// out put file
   std::string ConstraintsFile;
 
   /// weakest pre-condition
   ref<Expr> weakestPreCond;
+
   /// add end
 
   llvm::Function* getTargetFunction(llvm::Value *calledVal,
