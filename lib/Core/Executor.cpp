@@ -1697,13 +1697,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
                 weakestPreCond = wpcForCurrPath;
             } else if(weakestPreCond != wpcForCurrPath){
                 bool remain = true;
-                if(weakestPreCond->getKind() == Expr::Or){
+                if(weakestPreCond->getKind() == Expr::And){
                     if(weakestPreCond->getKid(0) == wpcForCurrPath || weakestPreCond->getKid(1) == wpcForCurrPath){
                         remain = false;
                     }
                 }
                 if(remain){
-                    weakestPreCond = OrExpr::create(weakestPreCond, wpcForCurrPath);
+                    weakestPreCond = AndExpr::create(weakestPreCond, wpcForCurrPath);
 
                     weakestPreCond = optimizer.optimizeExpr(weakestPreCond, false);
                 }
