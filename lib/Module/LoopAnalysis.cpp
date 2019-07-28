@@ -253,7 +253,7 @@ bool LoopPrimary::runOnModule (Module &M) {
         DominatorTree DT(F);
         LoopInfo & LI = getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
 
-#if 1
+#if 0
         errs()<<">>>>>>>> LOOP BEG\n";
         for(auto& Loop: LI){
             errs()<<"LINE: "<<Loop->getHeader()->front().getDebugLoc().getLine()<<"\n";
@@ -277,7 +277,7 @@ bool LoopPrimary::runOnModule (Module &M) {
         if(I->getDebugLoc()){
             errs()<<I->getDebugLoc().getLine()<<": \n";
         }
-        I->dump();
+        I->print(errs());
     }
     errs()<<"Iterate TermInsts End >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n\n";
 

@@ -1651,7 +1651,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     if (this->kmodule.get()->termInsts.find(i) != this->kmodule.get()->termInsts.end()) {
         klee_warning("Early terminate at %s", currLoc.c_str());
-        i->dump();
+        i->print(errs());
         terminateState(state);
     }
 
