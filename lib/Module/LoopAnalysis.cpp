@@ -70,6 +70,13 @@ static DISubprogram* getSubprogramScope(MDNode* Scope){
     return nullptr;
 }
 
+static StringRef getFileLastName(StringRef FileName){
+    size_t idx = FileName.find_last_of("/");
+    if(idx != std::string::npos)
+        FileName = FileName.substr(idx + 1);
+    return FileName;
+}
+
 static Function* inSameFunc(Module &M, string FixLine, vector<Instruction*>& FixLineInsts,
                             string CrashLine, vector<Instruction*>& CrashLineInsts){
 
@@ -98,10 +105,7 @@ static Function* inSameFunc(Module &M, string FixLine, vector<Instruction*>& Fix
                 StringRef FileName = DIS->getFilename();
                 if(FileName == "")
                     continue;
-
-                size_t idx = FileName.find_last_of("/");
-                if(idx != std::string::npos)
-                    FileName = FileName.substr(idx + 1);
+                FileName = getFileLastName(FileName);
 
                 unsigned int Line = Loc.getLine();
 
@@ -155,7 +159,15 @@ static void processSucc(BasicBlock* BB, DominatorTree &DT, Loop* CrashLoop,
 static void processLoop(Function &F, DominatorTree &DT, LoopInfo &LI, Instruction *Fix, Instruction *Crash,
                         set<Instruction *> *TermInsts) {
 
+    // if in the same level loop
     Loop* CrashLoop = LI.getLoopFor(Crash->getParent());
+    Loop* FixLoop = LI.getLoopFor(Crash->getParent());
+
+    if (CrashLoop && CrashLoop == FixLoop) {
+        BasicBlock* BB = Crash->getParent();
+        TerminatorInst* T = BB->getTerminator();
+        TermInsts->insert(T);
+    }
 
     while(CrashLoop) {
 
@@ -208,6 +220,20 @@ static void processNonLoop(Function &F, DominatorTree &DT, LoopInfo &LI, Instruc
         return;
     }
 
+    int RetNum = 0;
+    Instruction* LastRet = nullptr;
+    for (auto & BB : F) {
+        for (auto &I : BB) {
+            if (I.getOpcode() == Instruction::Ret) {
+                RetNum++;
+                LastRet = &I;
+            }
+        }
+    }
+    if (RetNum == 1) {
+        TermInsts->insert(LastRet);
+    }
+
     Loop* CrashLoop = LI.getLoopFor(Crash->getParent());
     Loop* FixLoop = LI.getLoopFor(Fix->getParent());
 
@@ -229,6 +255,9 @@ char LoopPrimary::ID = 0;
 
 bool LoopPrimary::runOnModule (Module &M) {
 
+    FixLine = getFileLastName(FixLine);
+    CrashLine = getFileLastName(CrashLine);
+
     errs()<<">>>>>>>>> LoopPrimary: FixLine: "<<FixLine<<"  CrashLine: "<<CrashLine<<"\n";
 
     vector<Instruction*> FixLineInsts;
@@ -248,7 +277,9 @@ bool LoopPrimary::runOnModule (Module &M) {
         if(F.isDeclaration())
             continue;
 
-        if(F.getName() != "readSeparateTilesIntoBuffer") continue;
+        if(&F != TargetFunc) {
+            continue;
+        }
 
         DominatorTree DT(F);
         LoopInfo & LI = getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
@@ -278,6 +309,7 @@ bool LoopPrimary::runOnModule (Module &M) {
             errs()<<I->getDebugLoc().getLine()<<": \n";
         }
         I->print(errs());
+        errs()<<"\n";
     }
     errs()<<"Iterate TermInsts End >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n\n";
 

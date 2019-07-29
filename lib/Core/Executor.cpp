@@ -1627,6 +1627,16 @@ static bool hasModelVersion(ref<Expr> expr){
 }
 
 
+static bool fix_covered = false;
+static bool crash_covered = false;
+
+static StringRef getFileLastName(StringRef FileName){
+    size_t idx = FileName.find_last_of("/");
+    if(idx != std::string::npos)
+        FileName = FileName.substr(idx + 1);
+    return FileName;
+}
+
 void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     Instruction *i = ki->inst;
@@ -1643,23 +1653,34 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     std::string currLoc = currFile + ":" + std::to_string(ki->info->line) ;
 
+    FixLine = getFileLastName(FixLine);
+    CrashLine = getFileLastName(CrashLine);
 
-//    if(funName == "readSeparateTilesIntoBuffer"){
-//        errs()<<currLoc<<"\n";
-//        i->dump();
-//    }
+    if(funName == "readextension"){
+        errs()<<currLoc<< " " << "\n";
+        // i->print(errs());
+        // errs()<<"\n";
+    }
 
     if (this->kmodule.get()->termInsts.find(i) != this->kmodule.get()->termInsts.end()) {
-        klee_warning("Early terminate at %s", currLoc.c_str());
+        klee_warning("Early terminate for TERM INST at %s", currLoc.c_str());
         i->print(errs());
         terminateState(state);
     }
 
-    if(currLoc == this->CrashLine) {
+    if(currLoc == FixLine) {
+        if(fix_covered && crash_covered) {
+            klee_warning("Early terminate FOR COVERED at %s", currLoc.c_str());
+            i->print(errs());
+            terminateState(state);
+        }
+        fix_covered = true;
+    }
 
+    if(currLoc == CrashLine) {
         if(i->getOpcode() == Instruction::Store || i->getOpcode() == Instruction::Load) {
 
-            //errs()<<"LOC: "<<currFile<<":"<<ki->info->line<<":"<<ki->info->column<<"\n";
+            // errs()<<"LOC: "<<currFile<<":"<<ki->info->line<<":"<<ki->info->column<<"\n";
             //i->print(errs(), NULL);
             //errs()<<"\n";
 
@@ -1708,7 +1729,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
                     weakestPreCond = optimizer.optimizeExpr(weakestPreCond, false);
                 }
             }
-
+            crash_covered = true;
 
 #if 0
             for (ConstraintManager::const_iterator it = state.constraints.begin();
@@ -1745,7 +1766,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
             if (vnumber >= 0) {
                 if(sf.locals[vnumber].value->getKind() != Expr::Constant){
                     //errs()<<"---- "<<index<<"\n";
-                    kfunc->reg2KInst[vnumber]->inst->dump();
+                    kfunc->reg2KInst[vnumber]->inst->print(errs());
                     sf.locals[vnumber].value->print(rso);
                     rso<<"\n";
                 }
