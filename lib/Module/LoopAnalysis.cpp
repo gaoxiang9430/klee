@@ -213,8 +213,7 @@ static void processLoop(Function &F, DominatorTree &DT, LoopInfo &LI, Instructio
     }
 }
 
-static void processNonLoop(Function &F, DominatorTree &DT, LoopInfo &LI, Instruction *Fix, Instruction *Crash,
-                        set<Instruction *> *TermInsts) {
+static void processNonLoop(Function &F, DominatorTree &DT, LoopInfo &LI, Instruction *Fix, Instruction *Crash, set<Instruction *> *TermInsts, string CrashLine) {
 
     if(!DT.dominates(Fix, Crash)) {
         return;
@@ -238,6 +237,34 @@ static void processNonLoop(Function &F, DominatorTree &DT, LoopInfo &LI, Instruc
     Loop* FixLoop = LI.getLoopFor(Fix->getParent());
 
     if (!CrashLoop && !FixLoop) {
+        for (auto &I : *(Crash->getParent())) {
+
+            if(!I.getDebugLoc())
+                continue;
+
+            auto Loc = I.getDebugLoc();
+            if(!Loc.getScope())
+                continue;
+
+            MDNode* Scope = Loc.getScope();
+
+            DISubprogram* DIS = getSubprogramScope(Scope);
+            if(!DIS)
+                continue;
+
+            StringRef FileName = DIS->getFilename();
+            if(FileName == "")
+                continue;
+            FileName = getFileLastName(FileName);
+
+            unsigned int Line = Loc.getLine();
+
+            string CurrLoc = FileName.str() + ":" + std::to_string(Line);
+            if(CurrLoc == CrashLine) {
+                TermInsts->insert(I.getNextNode());
+                break;
+            }
+        }
 
         TerminatorInst* BBTerm = Crash->getParent()->getTerminator();
 
@@ -300,7 +327,7 @@ bool LoopPrimary::runOnModule (Module &M) {
 
         processLoop(F, DT, LI, FixFront, CrashLast, TermInsts);
 
-        processNonLoop(F, DT, LI, FixFront, CrashLast, TermInsts);
+        processNonLoop(F, DT, LI, FixFront, CrashLast, TermInsts, CrashLine);
     }
 
     errs()<<"\nIterate TermInsts Beg >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n";
