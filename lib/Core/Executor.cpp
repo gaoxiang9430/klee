@@ -485,6 +485,28 @@ Executor::Executor(LLVMContext &ctx, const InterpreterOptions &opts,
 
 }
 
+static StringRef getFileLastName(StringRef FileName){
+    size_t idx = FileName.find_last_of("/");
+    if(idx != std::string::npos)
+        FileName = FileName.substr(idx + 1);
+    return FileName;
+}
+
+static DISubprogram* getSubprogramScope(MDNode* Scope){
+
+    if(!Scope)
+        return nullptr;
+
+    if(DILexicalBlock* LB = dyn_cast<DILexicalBlock>(Scope)){
+        return getSubprogramScope(LB->getScope());
+    }
+
+    if(DISubprogram* SP = dyn_cast<DISubprogram>(Scope)){
+        return SP;
+    }
+    return nullptr;
+}
+
 llvm::Module *
 Executor::setModule(std::vector<std::unique_ptr<llvm::Module>> &modules,
                     const ModuleOptions &opts) {
@@ -492,8 +514,9 @@ Executor::setModule(std::vector<std::unique_ptr<llvm::Module>> &modules,
          "can only register one module"); // XXX gross
 
 
-    this->CrashLine = opts.CrashLine;
-    this->FixLine = opts.FixLine;
+    this->CrashLine = getFileLastName(opts.CrashLine);
+    this->FixLine = getFileLastName(opts.FixLine);
+
     this->ConstraintsFile = opts.ConstraintsFile;
 
   kmodule = std::unique_ptr<KModule>(new KModule());
@@ -549,6 +572,47 @@ Executor::setModule(std::vector<std::unique_ptr<llvm::Module>> &modules,
   DataLayout *TD = kmodule->targetData.get();
   Context::initialize(TD->isLittleEndian(),
                       (Expr::Width)TD->getPointerSizeInBits());
+
+
+    for (auto &F: *(kmodule->module.get())) {
+        if (F.isDeclaration())
+            continue;
+
+        for (auto &BB: F) {
+            for (auto &I : BB) {
+                if(!I.getDebugLoc())
+                    continue;
+
+                auto Loc = I.getDebugLoc();
+                if(!Loc.getScope())
+                    continue;
+
+                MDNode* Scope = Loc.getScope();
+
+                DISubprogram* DIS = getSubprogramScope(Scope);
+                if(!DIS)
+                    continue;
+
+                StringRef FileName = DIS->getFilename();
+                if(FileName == "")
+                    continue;
+                FileName = getFileLastName(FileName);
+
+                unsigned int Line = Loc.getLine();
+
+                std::string CurrLoc = FileName.str() + ":" + std::to_string(Line);
+
+                if(CurrLoc == this->CrashLine) {
+                    CrashInsts.push_back(&I);
+                }
+
+                if(CurrLoc == this->FixLine) {
+                    FixInsts.push_back(&I);
+                }
+            }
+        }
+    }
+
 
   return kmodule->module.get();
 }
@@ -1630,13 +1694,6 @@ static bool hasModelVersion(ref<Expr> expr){
 static bool fix_covered = false;
 static bool crash_covered = false;
 
-static StringRef getFileLastName(StringRef FileName){
-    size_t idx = FileName.find_last_of("/");
-    if(idx != std::string::npos)
-        FileName = FileName.substr(idx + 1);
-    return FileName;
-}
-
 void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     Instruction *i = ki->inst;
@@ -1652,9 +1709,6 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
         currFile = currFile.substr(idx + 1);
 
     std::string currLoc = currFile + ":" + std::to_string(ki->info->line) ;
-
-    FixLine = getFileLastName(FixLine);
-    CrashLine = getFileLastName(CrashLine);
 
 #if 0
     if(funName == "readextension"){
@@ -1682,7 +1736,8 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     }
 
     if(currLoc == CrashLine) {
-        //if(i->getOpcode() == Instruction::Store || i->getOpcode() == Instruction::Load) {
+        Instruction* CrashFirst = CrashInsts.front();
+        if(i == CrashFirst) {
 
             errs()<<"LOC: "<<currFile<<":"<<ki->info->line<<":"<<ki->info->column<<"\n";
             i->print(errs(), NULL);
@@ -1781,7 +1836,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
             outfile.open(this->ConstraintsFile, std::ios_base::app);
             outfile << rso.str();
 #endif
-        //}
+        }
     } // end if(currLoc == this->crashLine)
 
   switch (i->getOpcode()) {

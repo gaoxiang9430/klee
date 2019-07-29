@@ -244,6 +244,11 @@ private:
   std::string FixLine;
   /// out put file
   std::string ConstraintsFile;
+  ///
+  std::vector<llvm::Instruction*> CrashInsts;
+
+  ///
+  std::vector<llvm::Instruction*> FixInsts;
 
   /// weakest pre-condition
   ref<Expr> weakestPreCond;
