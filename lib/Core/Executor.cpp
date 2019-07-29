@@ -1656,11 +1656,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     FixLine = getFileLastName(FixLine);
     CrashLine = getFileLastName(CrashLine);
 
-    if(funName == "readextension"){
+    /*if(funName == "readextension"){
         errs()<<currLoc<< " " << "\n";
         // i->print(errs());
         // errs()<<"\n";
-    }
+    }*/
 
     if (this->kmodule.get()->termInsts.find(i) != this->kmodule.get()->termInsts.end()) {
         klee_warning("Early terminate for TERM INST at %s", currLoc.c_str());
@@ -1678,11 +1678,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     }
 
     if(currLoc == CrashLine) {
-        if(i->getOpcode() == Instruction::Store || i->getOpcode() == Instruction::Load) {
+        //if(i->getOpcode() == Instruction::Store || i->getOpcode() == Instruction::Load) {
 
-            // errs()<<"LOC: "<<currFile<<":"<<ki->info->line<<":"<<ki->info->column<<"\n";
-            //i->print(errs(), NULL);
-            //errs()<<"\n";
+            errs()<<"LOC: "<<currFile<<":"<<ki->info->line<<":"<<ki->info->column<<"\n";
+            i->print(errs(), NULL);
+            errs()<<"\n";
 
             //this->weakestPreCond = WPCForThisPath.simplifyExpr(this->weakestPreCond);
             //std::set<ref<Expr>>
@@ -1777,7 +1777,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
             outfile.open(this->ConstraintsFile, std::ios_base::app);
             outfile << rso.str();
 #endif
-        }
+        //}
     } // end if(currLoc == this->crashLine)
 
   switch (i->getOpcode()) {
