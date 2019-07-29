@@ -1656,15 +1656,18 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     FixLine = getFileLastName(FixLine);
     CrashLine = getFileLastName(CrashLine);
 
+#if 0
     if(funName == "readextension"){
         errs()<<currLoc<< " " << "\n";
         // i->print(errs());
         // errs()<<"\n";
     }
+#endif
 
     if (this->kmodule.get()->termInsts.find(i) != this->kmodule.get()->termInsts.end()) {
         klee_warning("Early terminate for TERM INST at %s", currLoc.c_str());
         i->print(errs());
+        errs()<<"\n";
         terminateState(state);
     }
 
@@ -1672,6 +1675,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
         if(fix_covered && crash_covered) {
             klee_warning("Early terminate FOR COVERED at %s", currLoc.c_str());
             i->print(errs());
+            errs()<<"\n";
             terminateState(state);
         }
         fix_covered = true;
