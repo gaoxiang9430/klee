@@ -1713,11 +1713,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     FixLine = getFileLastName(FixLine);
     CrashLine = getFileLastName(CrashLine);
 
-    if(funName == "readextension"){
-        errs()<<currLoc<< " " << "\n";
+    //if(funName == "readextension"){
+    //    errs()<<currLoc<< " " << "\n";
         // i->print(errs());
         // errs()<<"\n";
-    }
+    //}
 
     if (this->kmodule.get()->termInsts.find(i) != this->kmodule.get()->termInsts.end()) {
         klee_warning("Early terminate for TERM INST at %s", currLoc.c_str());
@@ -1743,7 +1743,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
         Instruction* CrashFirst = CrashInsts.front();
         if(i == CrashFirst) {
 
-            errs()<<"LOC: "<<currFile<<":"<<ki->info->line<<":"<<ki->info->column<<"\n";
+            errs()<<"HIT CRASH LINE: "<<currFile<<":"<<ki->info->line<<":"<<ki->info->column<<"\n";
             i->print(errs(), NULL);
             errs()<<"\n";
 
