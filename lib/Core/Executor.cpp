@@ -1713,11 +1713,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     FixLine = getFileLastName(FixLine);
     CrashLine = getFileLastName(CrashLine);
 
-    //if(funName == "readextension"){
-    //    errs()<<currLoc<< " " << "\n";
-        // i->print(errs());
-        // errs()<<"\n";
-    //}
+    if(funName == "setImage1"){
+        errs()<<currLoc<< " " << "\n";
+         i->print(errs());
+         errs()<<"\n";
+    }
 
     if (this->kmodule.get()->termInsts.find(i) != this->kmodule.get()->termInsts.end()) {
         klee_warning("Early terminate for TERM INST at %s", currLoc.c_str());

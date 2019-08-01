@@ -156,23 +156,35 @@ static void processSucc(BasicBlock* BB, DominatorTree &DT, Loop* CrashLoop,
     }
 }
 
+static void insertAlongBB(BasicBlock *BB, DominatorTree &DT, Instruction* Fix, set<Instruction *> *TermInsts){
+    for (auto* SBB: successors(BB)){
+
+        if (!DT.dominates(Fix, SBB))
+            return;
+
+        TermInsts->insert(&(SBB->front()));
+        insertAlongBB(SBB, DT, Fix, TermInsts);
+    }
+}
+
 static void processLoop(Function &F, DominatorTree &DT, LoopInfo &LI, Instruction *Fix, Instruction *Crash,
                         set<Instruction *> *TermInsts) {
 
     // if in the same level loop
     Loop* CrashLoop = LI.getLoopFor(Crash->getParent());
-    Loop* FixLoop = LI.getLoopFor(Crash->getParent());
-
+    Loop* FixLoop = LI.getLoopFor(Fix->getParent());
+    
     if (CrashLoop && CrashLoop == FixLoop) {
         BasicBlock* BB = Crash->getParent();
         TerminatorInst* T = BB->getTerminator();
         TermInsts->insert(T);
+        insertAlongBB(BB, DT, Fix, TermInsts);
     }
 
     while(CrashLoop) {
 
-        //errs() << "==========================================\n";
-        //CrashLoop->dump();
+//        errs() << "==========================================\n";
+//        CrashLoop->dump();
 
         SmallVector<BasicBlock *, 4> ExitBlocks;
         CrashLoop->getExitBlocks(ExitBlocks);
@@ -204,6 +216,7 @@ static void processLoop(Function &F, DominatorTree &DT, LoopInfo &LI, Instructio
 
     if (!CrashLoop)
         return;
+
 
     SmallVector<BasicBlock *, 4> ExitBlocks;
     CrashLoop->getExitBlocks(ExitBlocks);
