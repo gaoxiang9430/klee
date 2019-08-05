@@ -49,6 +49,10 @@ static void report_internal_error(const char *msg, ...) {
   }
 }
 
+void klee_track(void *buf, const char* name) {
+  return;
+}
+
 void klee_make_symbolic(void *array, size_t nbytes, const char *name) {
 
   if (!name)

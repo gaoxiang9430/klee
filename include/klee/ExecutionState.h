@@ -153,6 +153,10 @@ public:
   // The numbers of times this state has run through Executor::stepInstruction
   std::uint64_t steppedInstructions;
 
+  ref<Expr> tracedBase;
+
+  ref<Expr> recoredOffset;
+
 private:
   ExecutionState() : ptreeNode(0) {}
 

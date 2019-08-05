@@ -109,6 +109,7 @@ static SpecialFunctionHandler::HandlerInfo handlerInfo[] = {
   add("klee_warning", handleWarning, false),
   add("klee_warning_once", handleWarningOnce, false),
   add("klee_alias_function", handleAliasFunction, false),
+  add("klee_track", handleTrack, false),
   add("malloc", handleMalloc, true),
   add("memalign", handleMemalign, true),
   add("realloc", handleRealloc, true),
@@ -212,7 +213,11 @@ bool SpecialFunctionHandler::handle(ExecutionState &state,
                                     KInstruction *target,
                                     std::vector< ref<Expr> > &arguments) {
   handlers_ty::iterator it = handlers.find(f);
+
   if (it != handlers.end()) {
+
+    llvm::errs()<<"FIND "<<f->getName()<<"\n";
+
     Handler h = it->second.first;
     bool hasReturnValue = it->second.second;
      // FIXME: Check this... add test?
@@ -483,7 +488,32 @@ void SpecialFunctionHandler::handleAssume(ExecutionState &state,
                                      Executor::User);
     }
   } else {
-    executor.addConstraint(state, e);
+
+    if(state.recoredOffset.isNull()) {
+      executor.addConstraint(state, e);
+    } else if (e.get()->getKind() == Expr::Ult){
+
+      if (state.recoredOffset == ConstantExpr::create(0, 64)) {
+          executor.addConstraint(state, e);
+      } else {
+          ref<Expr> left = e.get()->getKid(0);
+          ref<Expr> right = e.get()->getKid(1);
+
+          if(left.get()->getWidth() != 64) {
+              left = ZExtExpr::create(left, 64);
+          }
+          if(right.get()->getWidth() != 64) {
+              right = ZExtExpr::create(right, 64);
+          }
+
+          ref<Expr> newLeft = AddExpr::create(left, state.recoredOffset);
+          ref<Expr> newUlt = UltExpr::create(newLeft, right);
+          executor.addConstraint(state, newUlt);
+      }
+
+    } else {
+      executor.addConstraint(state, e);
+    }
   }
 }
 
@@ -783,6 +813,42 @@ void SpecialFunctionHandler::handleDefineFixedObject(ExecutionState &state,
   executor.bindObjectInState(state, mo, false);
   mo->isUserSpecified = true; // XXX hack;
 }
+
+void SpecialFunctionHandler::handleTrack(ExecutionState &state,
+                                                KInstruction *target,
+                                                std::vector<ref<Expr> > &arguments) {
+
+  if(!state.recoredOffset.isNull())
+    return;
+
+  std::string name;
+  if (arguments.size() != 2) {
+    executor.terminateStateOnError(state, "Incorrect number of arguments to klee_track(void*, char*)", Executor::User);
+    return;
+  }
+
+  name = arguments[1]->isZero() ? "" : readStringAtAddress(state, arguments[1]);
+
+  if (name.length() == 0) {
+    klee_warning("klee_track: empty name");
+    return;
+  }
+
+  errs()<<"klee_track >>>>>>>>>>>>>>>>>>>>>>>>>>>> "<<name<<"\n";
+  arguments[0]->dump();
+
+  if (state.tracedBase.isNull()) {
+    state.tracedBase = arguments[0];
+  } else {
+    state.recoredOffset = SubExpr::create(arguments[0], state.tracedBase);
+    if(state.recoredOffset.get()->getWidth() != 64) {
+      state.recoredOffset = ZExtExpr::create(state.recoredOffset, 64);
+    }
+    errs()<<"klee_track offset >>>>>>>>>>>>>>>>>>>>>>>>>>>> "<<name<<"\n";
+    state.recoredOffset->dump();
+  }
+}
+
 
 void SpecialFunctionHandler::handleMakeSymbolic(ExecutionState &state,
                                                 KInstruction *target,

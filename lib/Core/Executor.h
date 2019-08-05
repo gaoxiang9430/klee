@@ -375,6 +375,8 @@ private:
   /// validity checks, and seed patching.
   void addConstraint(ExecutionState &state, ref<Expr> condition);
 
+  void addAssumedConstraint(ExecutionState &state, ref<Expr> condition);
+
   // Called on [for now] concrete reads, replaces constant with a symbolic
   // Used for testing.
   ref<Expr> replaceReadWithSymbolic(ExecutionState &state, ref<Expr> e);

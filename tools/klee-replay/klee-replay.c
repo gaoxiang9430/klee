@@ -432,6 +432,10 @@ void klee_posix_prefer_cex(void *buffer, uintptr_t condition) {
   ;
 }
 
+void klee_track(void* buf, const char*name){
+  return;
+}
+
 void klee_make_symbolic(void *addr, size_t nbytes, const char *name) {
   /* XXX remove model version code once new tests gen'd */
   if (obj_index >= input->numObjects) {

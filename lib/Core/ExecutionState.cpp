@@ -110,6 +110,7 @@ ExecutionState::ExecutionState(const ExecutionState& state):
 
     addressSpace(state.addressSpace),
     constraints(state.constraints),
+    tracedBase(state.tracedBase),
 
     queryCost(state.queryCost),
     weight(state.weight),

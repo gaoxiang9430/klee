@@ -103,6 +103,8 @@ extern "C" {
   unsigned klee_is_symbolic(uintptr_t n);
 
 
+  void klee_track(void*, const char*);
+
   /* The following intrinsics are primarily intended for internal use
      and may have peculiar semantics. */
 
