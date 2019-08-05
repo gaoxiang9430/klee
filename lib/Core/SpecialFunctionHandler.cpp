@@ -215,9 +215,6 @@ bool SpecialFunctionHandler::handle(ExecutionState &state,
   handlers_ty::iterator it = handlers.find(f);
 
   if (it != handlers.end()) {
-
-    llvm::errs()<<"FIND "<<f->getName()<<"\n";
-
     Handler h = it->second.first;
     bool hasReturnValue = it->second.second;
      // FIXME: Check this... add test?
@@ -834,9 +831,6 @@ void SpecialFunctionHandler::handleTrack(ExecutionState &state,
     return;
   }
 
-  errs()<<"klee_track >>>>>>>>>>>>>>>>>>>>>>>>>>>> "<<name<<"\n";
-  arguments[0]->dump();
-
   if (state.tracedBase.isNull()) {
     state.tracedBase = arguments[0];
   } else {
@@ -844,8 +838,6 @@ void SpecialFunctionHandler::handleTrack(ExecutionState &state,
     if(state.recoredOffset.get()->getWidth() != 64) {
       state.recoredOffset = ZExtExpr::create(state.recoredOffset, 64);
     }
-    errs()<<"klee_track offset >>>>>>>>>>>>>>>>>>>>>>>>>>>> "<<name<<"\n";
-    state.recoredOffset->dump();
   }
 }
 
