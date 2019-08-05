@@ -27,6 +27,10 @@ namespace klee {
   template<typename T> class ref;
   
   class SpecialFunctionHandler {
+
+  private:
+    void insertToWPC(ref<Expr> &wpcForCurrPath);
+
   public:
     typedef void (SpecialFunctionHandler::*Handler)(ExecutionState &state,
                                                     KInstruction *target, 

@@ -135,6 +135,18 @@ void klee::findSymbolicObjects(ref<Expr> e,
   findSymbolicObjects(&e, &e+1, results);
 }
 
+bool klee::hasModelVersion(ref<Expr> expr) {
+    std::vector<const Array *> objects;
+    klee::findSymbolicObjects(expr, objects);
+    for(auto obj = objects.begin(); obj != objects.end(); obj++){
+        //errs()<<"NAME: "<<(*obj)->name<<"\n";
+        if((*obj)->name == "model_version"){
+            return true;
+        }
+    }
+    return false;
+}
+
 typedef std::vector< ref<Expr> >::iterator A;
 template void klee::findSymbolicObjects<A>(A, A, std::vector<const Array*> &);
 

@@ -39,6 +39,8 @@ namespace klee {
                            InputIterator end,
                            std::vector<const Array*> &results);
 
+  bool hasModelVersion(ref<Expr> expr);
+
   class ConstantArrayFinder : public ExprVisitor {
   protected:
     ExprVisitor::Action visitRead(const ReadExpr &re);

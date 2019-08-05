@@ -613,6 +613,23 @@ Executor::setModule(std::vector<std::unique_ptr<llvm::Module>> &modules,
         }
     }
 
+    bool illegalCrashPoint = true;
+    for(auto * I : CrashInsts) {
+        if(auto* C = dyn_cast<llvm::CallInst>(I)) {
+            Function *Caller = C->getCalledFunction();
+            if (Caller == nullptr || !Caller->hasName()){
+                continue;
+            }
+            const std::string &Name = Caller->getName().str();
+            if(Name == "klee_assume") {
+                illegalCrashPoint = false;
+                break;
+            }
+        }
+    }
+    if(illegalCrashPoint) {
+        klee_warning("CrashLine '%s' has no klee_assume().", CrashLine.c_str());
+    }
 
   return kmodule->module.get();
 }
@@ -1678,19 +1695,6 @@ static inline const llvm::fltSemantics * fpWidthToSemantics(unsigned width) {
   }
 }
 
-static bool hasModelVersion(ref<Expr> expr){
-    std::vector<const Array *> objects;
-    findSymbolicObjects(expr, objects);
-    for(auto obj = objects.begin(); obj != objects.end(); obj++){
-        //errs()<<"NAME: "<<(*obj)->name<<"\n";
-        if((*obj)->name == "model_version"){
-            return true;
-        }
-    }
-    return false;
-}
-
-
 static bool fix_covered = false;
 static bool crash_covered = false;
 
@@ -1710,14 +1714,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     std::string currLoc = currFile + ":" + std::to_string(ki->info->line) ;
 
-    FixLine = getFileLastName(FixLine);
-    CrashLine = getFileLastName(CrashLine);
-
-    if(funName == "setImage1"){
-        errs()<<currLoc<< " " << "\n";
-         i->print(errs());
-         errs()<<"\n";
-    }
+//    if(funName == "setImage1"){
+//        errs()<<currLoc<< " " << "\n";
+//         i->print(errs());
+//         errs()<<"\n";
+//    }
 
     if (this->kmodule.get()->termInsts.find(i) != this->kmodule.get()->termInsts.end()) {
         klee_warning("Early terminate for TERM INST at %s", currLoc.c_str());
@@ -1739,109 +1740,16 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
         }
     }
 
-    if(currLoc == CrashLine) {
-        Instruction* CrashFirst = CrashInsts.front();
-        if(i == CrashFirst) {
+#if 1
+    Instruction* CrashFirst = CrashInsts.front();
+    if(i == CrashFirst) {
+        errs()<<"HIT CRASH LINE: "<<currFile<<":"<<ki->info->line<<":"<<ki->info->column<<"\n";
+        i->print(errs(), NULL);
+        errs()<<"\n";
 
-            errs()<<"HIT CRASH LINE: "<<currFile<<":"<<ki->info->line<<":"<<ki->info->column<<"\n";
-            i->print(errs(), NULL);
-            errs()<<"\n";
-
-            //this->weakestPreCond = WPCForThisPath.simplifyExpr(this->weakestPreCond);
-            //std::set<ref<Expr>>
-
-            //std::string str;
-            //llvm::raw_string_ostream rso(str);
-
-            //errs()<<"\n>>>> Path Constraints >>>>\n";
-
-            ref<Expr> wpcForCurrPath;
-
-            for (ConstraintManager::const_iterator it = state.constraints.begin(); it != state.constraints.end(); it++) {
-                //errs()<<"-----\n";
-                ref<Expr> current = *it;
-                //current->dump();
-
-                // remove model version
-                if(hasModelVersion(current)){
-                    continue;
-                }
-
-                if(wpcForCurrPath.isNull()){
-                    wpcForCurrPath = *it;
-                    continue;
-                }
-
-                wpcForCurrPath = AndExpr::create(wpcForCurrPath, current);
-                wpcForCurrPath = optimizer.optimizeExpr(wpcForCurrPath, false);
-            }
-
-            // merge with the whole wpc
-            if(weakestPreCond.isNull()){
-                weakestPreCond = wpcForCurrPath;
-            } else if(weakestPreCond != wpcForCurrPath){
-                bool remain = true;
-                if(weakestPreCond->getKind() == Expr::And){
-                    if(weakestPreCond->getKid(0) == wpcForCurrPath || weakestPreCond->getKid(1) == wpcForCurrPath){
-                        remain = false;
-                    }
-                }
-                if(remain){
-                    weakestPreCond = AndExpr::create(weakestPreCond, wpcForCurrPath);
-
-                    weakestPreCond = optimizer.optimizeExpr(weakestPreCond, false);
-                }
-            }
-            crash_covered = true;
-
-#if 0
-            for (ConstraintManager::const_iterator it = state.constraints.begin();
-                 it != state.constraints.end(); it++) {
-                //state.constraints.simplifyExpr(*it)->dump();
-                (*it)->print(rso);
-                rso<<"\n";
-            }
-
-            rso<<"---- Symbolic Val:\n";
-
-            //state.dumpStack(errs());
-
-            int needed;
-            if(i->getOpcode() == Instruction::Store) {
-                needed = 1;
-            } else {
-                needed = 0;
-            }
-
-            StackFrame &sf = state.stack.back();
-
-            for (unsigned i=0; i < sf.kf->numRegisters; i++){
-
-                if(!sf.locals[i].value.isNull() && sf.locals[i].value->getKind() != Expr::Constant){
-                    errs()<<"---- "<<i<<"\n";
-                    sf.locals[i].value->dump();
-                }
-            }
-
-            KFunction* kfunc = ki->getParentKFunc();
-
-            int vnumber = ki->operands[needed];
-            if (vnumber >= 0) {
-                if(sf.locals[vnumber].value->getKind() != Expr::Constant){
-                    //errs()<<"---- "<<index<<"\n";
-                    kfunc->reg2KInst[vnumber]->inst->print(errs());
-                    sf.locals[vnumber].value->print(rso);
-                    rso<<"\n";
-                }
-            }
-            rso<<"<<<<<<<<\n\n";
-
-            std::ofstream outfile;
-            outfile.open(this->ConstraintsFile, std::ios_base::app);
-            outfile << rso.str();
+        crash_covered = true;
+    }
 #endif
-        }
-    } // end if(currLoc == this->crashLine)
 
   switch (i->getOpcode()) {
     // Control flow

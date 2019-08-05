@@ -27,6 +27,8 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Module.h"
 
+#include "klee/util/ExprUtil.h"
+
 #include <errno.h>
 #include <sstream>
 
@@ -463,11 +465,29 @@ void SpecialFunctionHandler::handleMemalign(ExecutionState &state,
                         alignment);
 }
 
+void SpecialFunctionHandler::insertToWPC(ref<Expr> &wpcForCurrPath) {
+  if(executor.weakestPreCond.isNull()){
+    executor.weakestPreCond = wpcForCurrPath;
+  } else if(executor.weakestPreCond != wpcForCurrPath){
+    bool remain = true;
+    if(executor.weakestPreCond->getKind() == Expr::And){
+      if(executor.weakestPreCond->getKid(0) == wpcForCurrPath || executor.weakestPreCond->getKid(1) == wpcForCurrPath){
+        remain = false;
+      }
+    }
+    if(remain){
+      executor.weakestPreCond = AndExpr::create(executor.weakestPreCond, wpcForCurrPath);
+      executor.weakestPreCond = executor.optimizer.optimizeExpr(executor.weakestPreCond, false);
+    }
+  }
+}
+
+
 void SpecialFunctionHandler::handleAssume(ExecutionState &state,
                             KInstruction *target,
                             std::vector<ref<Expr> > &arguments) {
   assert(arguments.size()==1 && "invalid number of arguments to klee_assume");
-  
+
   ref<Expr> e = arguments[0];
   
   if (e->getWidth() != Expr::Bool)
@@ -475,6 +495,58 @@ void SpecialFunctionHandler::handleAssume(ExecutionState &state,
   
   bool res;
   bool success __attribute__ ((unused)) = executor.solver->mustBeFalse(state, e, res);
+
+    bool adjustByOffset = false;
+    if(!state.recoredOffset.isNull() && e.get()->getKind() == Expr::Ult) {
+        if (state.recoredOffset != ConstantExpr::create(0, 64)) {
+            adjustByOffset = true;
+        }
+    }
+
+    if(adjustByOffset) {
+        ref<Expr> left = e.get()->getKid(0);
+        ref<Expr> right = e.get()->getKid(1);
+
+        if(left.get()->getWidth() != 64) {
+            left = ZExtExpr::create(left, 64);
+        }
+        if(right.get()->getWidth() != 64) {
+            right = ZExtExpr::create(right, 64);
+        }
+        ref<Expr> newLeft = AddExpr::create(left, state.recoredOffset);
+        ref<Expr> newUlt = UltExpr::create(newLeft, right);
+        e = newUlt;
+    }
+
+    ref<Expr> wpcForCurrPath;
+    for (ConstraintManager::const_iterator it = state.constraints.begin(); it != state.constraints.end(); it++) {
+        ref<Expr> current = *it;
+
+        if(klee::hasModelVersion(current)){
+            continue;
+        }
+
+        if(wpcForCurrPath.isNull()){
+            wpcForCurrPath = *it;
+            continue;
+        }
+
+        wpcForCurrPath = AndExpr::create(wpcForCurrPath, current);
+        wpcForCurrPath = executor.optimizer.optimizeExpr(wpcForCurrPath, false);
+    }
+
+    if(wpcForCurrPath.isNull()){
+        wpcForCurrPath = ConstantExpr::create(1, Expr::Bool);
+    }
+
+    // PC->CFC => !PC \/ CFC
+    wpcForCurrPath = NotExpr::create(wpcForCurrPath);
+    wpcForCurrPath = OrExpr::create(wpcForCurrPath, e);
+
+    if(!klee::hasModelVersion(wpcForCurrPath)){
+        insertToWPC(wpcForCurrPath);
+    }
+
   assert(success && "FIXME: Unhandled solver failure");
   if (res) {
     if (SilentKleeAssume) {
@@ -485,32 +557,7 @@ void SpecialFunctionHandler::handleAssume(ExecutionState &state,
                                      Executor::User);
     }
   } else {
-
-    if(state.recoredOffset.isNull()) {
       executor.addConstraint(state, e);
-    } else if (e.get()->getKind() == Expr::Ult){
-
-      if (state.recoredOffset == ConstantExpr::create(0, 64)) {
-          executor.addConstraint(state, e);
-      } else {
-          ref<Expr> left = e.get()->getKid(0);
-          ref<Expr> right = e.get()->getKid(1);
-
-          if(left.get()->getWidth() != 64) {
-              left = ZExtExpr::create(left, 64);
-          }
-          if(right.get()->getWidth() != 64) {
-              right = ZExtExpr::create(right, 64);
-          }
-
-          ref<Expr> newLeft = AddExpr::create(left, state.recoredOffset);
-          ref<Expr> newUlt = UltExpr::create(newLeft, right);
-          executor.addConstraint(state, newUlt);
-      }
-
-    } else {
-      executor.addConstraint(state, e);
-    }
   }
 }
 

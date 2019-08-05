@@ -298,7 +298,7 @@ bool LoopPrimary::runOnModule (Module &M) {
     FixLine = getFileLastName(FixLine);
     CrashLine = getFileLastName(CrashLine);
 
-    errs()<<">>>>>>>>> LoopPrimary: FixLine: "<<FixLine<<"  CrashLine: "<<CrashLine<<"\n";
+    errs()<<">>>>>>>> LoopPrimary: FixLine: "<<FixLine<<"  CrashLine: "<<CrashLine<<"\n";
 
     vector<Instruction*> FixLineInsts;
     vector<Instruction*> CrashLineInsts;
@@ -343,7 +343,7 @@ bool LoopPrimary::runOnModule (Module &M) {
         processNonLoop(F, DT, LI, FixFront, CrashLast, TermInsts, CrashLine);
     }
 
-    errs()<<"\nIterate TermInsts Beg >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n";
+    errs()<<"\n>>>>>>>> Iterate TermInsts Beg >>>>>>>>>>>>>>>>>>>>>>>>>>\n";
     for(auto *I : *TermInsts) {
         if(I->getDebugLoc()){
             errs()<<I->getDebugLoc().getLine()<<": \n";
@@ -351,7 +351,7 @@ bool LoopPrimary::runOnModule (Module &M) {
         I->print(errs());
         errs()<<"\n";
     }
-    errs()<<"Iterate TermInsts End >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n\n";
+    errs()<<">>>>>>>> Iterate TermInsts End >>>>>>>>>>>>>>>>>>>>>>>>>>\n\n";
 
     return true;
 }
