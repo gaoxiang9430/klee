@@ -156,14 +156,21 @@ static void processSucc(BasicBlock* BB, DominatorTree &DT, Loop* CrashLoop,
     }
 }
 
-static void insertAlongBB(BasicBlock *BB, DominatorTree &DT, Instruction* Fix, set<Instruction *> *TermInsts){
+static void insertAlongBB(BasicBlock *BB, DominatorTree &DT, Instruction* Fix,
+        set<Instruction *> *TermInsts, set<BasicBlock*> *CheckedBB){
+
+    if (CheckedBB->find(BB) != CheckedBB->end())
+        return;
+
+    CheckedBB->insert(BB);
+
     for (auto* SBB: successors(BB)){
 
         if (!DT.dominates(Fix, SBB))
             return;
 
         TermInsts->insert(&(SBB->front()));
-        insertAlongBB(SBB, DT, Fix, TermInsts);
+        insertAlongBB(SBB, DT, Fix, TermInsts, CheckedBB);
     }
 }
 
@@ -178,7 +185,9 @@ static void processLoop(Function &F, DominatorTree &DT, LoopInfo &LI, Instructio
         BasicBlock* BB = Crash->getParent();
         TerminatorInst* T = BB->getTerminator();
         TermInsts->insert(T);
-        insertAlongBB(BB, DT, Fix, TermInsts);
+
+        std::set<llvm::BasicBlock*> CheckedBB;
+        insertAlongBB(BB, DT, Fix, TermInsts, &CheckedBB);
     }
 
     while(CrashLoop) {
