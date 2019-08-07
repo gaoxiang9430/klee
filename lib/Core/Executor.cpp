@@ -1741,13 +1741,15 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     }
 
 #if 1
-    Instruction* CrashFirst = CrashInsts.front();
-    if(i == CrashFirst) {
-        errs()<<"HIT CRASH LINE: "<<currFile<<":"<<ki->info->line<<":"<<ki->info->column<<"\n";
-        i->print(errs(), NULL);
-        errs()<<"\n";
+    if (!CrashInsts.empty()) {
+        Instruction *CrashFirst = CrashInsts.front();
+        if (i == CrashFirst) {
+            errs() << "HIT CRASH LINE: " << currFile << ":" << ki->info->line << ":" << ki->info->column << "\n";
+            i->print(errs(), NULL);
+            errs() << "\n";
 
-        crash_covered = true;
+            crash_covered = true;
+        }
     }
 #endif
 
