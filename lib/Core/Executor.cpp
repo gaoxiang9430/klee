@@ -613,7 +613,7 @@ Executor::setModule(std::vector<std::unique_ptr<llvm::Module>> &modules,
         }
     }
 
-    bool illegalCrashPoint = true;
+    bool KleeAssumeFound = false;
     for(auto * I : CrashInsts) {
         if(auto* C = dyn_cast<llvm::CallInst>(I)) {
             Function *Caller = C->getCalledFunction();
@@ -622,12 +622,17 @@ Executor::setModule(std::vector<std::unique_ptr<llvm::Module>> &modules,
             }
             const std::string &Name = Caller->getName().str();
             if(Name == "klee_assume") {
-                illegalCrashPoint = false;
-                break;
+                KleeAssumeFound = true;
+                continue;
             }
+
+        }
+        if (KleeAssumeFound) {
+            KleeAssumeInstNext = I;
+            break;
         }
     }
-    if(illegalCrashPoint) {
+    if(!KleeAssumeFound) {
         klee_warning("CrashLine '%s' has no klee_assume().", CrashLine.c_str());
     }
 
@@ -1741,15 +1746,16 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     }
 
 #if 1
-    if (!CrashInsts.empty()) {
-        Instruction *CrashFirst = CrashInsts.front();
-        if (i == CrashFirst) {
+    if (KleeAssumeInstNext) {
+        if (i == KleeAssumeInstNext) {
             errs() << "HIT CRASH LINE: " << currFile << ":" << ki->info->line << ":" << ki->info->column << "\n";
             i->print(errs(), NULL);
             errs() << "\n";
 
             crash_covered = true;
         }
+    } else {
+        klee_warning_once(F, "EMPTY KleeAssumeInstNext, CrashLine: %s\n", CrashLine.c_str());
     }
 #endif
 
