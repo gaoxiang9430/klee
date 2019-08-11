@@ -180,9 +180,9 @@ static void processLoop(Function &F, DominatorTree &DT, LoopInfo &LI, Instructio
     // if in the same level loop
     Loop* CrashLoop = LI.getLoopFor(Crash->getParent());
     Loop* FixLoop = LI.getLoopFor(Fix->getParent());
-    
     if (CrashLoop && CrashLoop == FixLoop) {
         BasicBlock* BB = Crash->getParent();
+
         TerminatorInst* T = BB->getTerminator();
         TermInsts->insert(T);
 
@@ -191,9 +191,6 @@ static void processLoop(Function &F, DominatorTree &DT, LoopInfo &LI, Instructio
     }
 
     while(CrashLoop) {
-
-//        errs() << "==========================================\n";
-//        CrashLoop->dump();
 
         SmallVector<BasicBlock *, 4> ExitBlocks;
         CrashLoop->getExitBlocks(ExitBlocks);

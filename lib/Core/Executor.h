@@ -247,7 +247,6 @@ private:
   ///
   std::vector<llvm::Instruction*> CrashInsts;
 
-  llvm::Instruction* KleeAssumeInstNext;
   ///
   std::vector<llvm::Instruction*> FixInsts;
 

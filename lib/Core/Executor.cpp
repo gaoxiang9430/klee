@@ -574,6 +574,11 @@ Executor::setModule(std::vector<std::unique_ptr<llvm::Module>> &modules,
                       (Expr::Width)TD->getPointerSizeInBits());
 
 
+    std::string CrashFile = CrashLine.substr(0, CrashLine.find(":"));
+    int CrashLineNum = std::stoi(CrashLine.substr(CrashLine.find(":") + 1), nullptr);
+    std::string AssumeLine = CrashFile + ":" + std::to_string(CrashLineNum);
+    std::vector<llvm::Instruction*> AssumeInsts;
+
     for (auto &F: *(kmodule->module.get())) {
         if (F.isDeclaration())
             continue;
@@ -609,12 +614,17 @@ Executor::setModule(std::vector<std::unique_ptr<llvm::Module>> &modules,
                 if(CurrLoc == this->FixLine) {
                     FixInsts.push_back(&I);
                 }
+
+                if (CurrLoc == AssumeLine) {
+                    AssumeInsts.push_back(&I);
+                }
             }
         }
     }
 
+    // check for klee_assume
     bool KleeAssumeFound = false;
-    for(auto * I : CrashInsts) {
+    for(auto * I : AssumeInsts) {
         if(auto* C = dyn_cast<llvm::CallInst>(I)) {
             Function *Caller = C->getCalledFunction();
             if (Caller == nullptr || !Caller->hasName()){
@@ -623,13 +633,8 @@ Executor::setModule(std::vector<std::unique_ptr<llvm::Module>> &modules,
             const std::string &Name = Caller->getName().str();
             if(Name == "klee_assume") {
                 KleeAssumeFound = true;
-                continue;
+                break;
             }
-
-        }
-        if (KleeAssumeFound) {
-            KleeAssumeInstNext = I;
-            break;
         }
     }
     if(!KleeAssumeFound) {
@@ -1719,7 +1724,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     std::string currLoc = currFile + ":" + std::to_string(ki->info->line) ;
 
-//    if(funName == "setImage1"){
+//    if(funName == "decode_dds1"){
 //        errs()<<currLoc<< " " << "\n";
 //         i->print(errs());
 //         errs()<<"\n";
@@ -1733,31 +1738,32 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     }
 
     if(currLoc == FixLine) {
-        if (InvokeInst *invoke = dyn_cast<InvokeInst>(i)){
-            if( invoke->getCalledFunction()->getName() == "klee_make_symbolic"){
-                if(fix_covered && crash_covered) {
-                    klee_warning("Early terminate FOR COVERED at %s", currLoc.c_str());
-                    i->print(errs());
-                    terminateState(state);
-                }
+        if(fix_covered && crash_covered) {
+            klee_warning("Early terminate FOR COVERED FIX at %s", currLoc.c_str());
+            i->print(errs());
+            terminateState(state);
+        }
+
+        if(CallInst *Call = dyn_cast<CallInst>(i)) {
+            if(Call->getCalledFunction()->getName() == "klee_make_symbolic"){
                 fix_covered = true;
             }
         }
     }
 
-#if 1
-    if (KleeAssumeInstNext) {
-        if (i == KleeAssumeInstNext) {
+    if (!CrashInsts.empty()) {
+        if (i == CrashInsts.front()) {
+            #if 1
             errs() << "HIT CRASH LINE: " << currFile << ":" << ki->info->line << ":" << ki->info->column << "\n";
             i->print(errs(), NULL);
             errs() << "\n";
+            #endif
 
             crash_covered = true;
         }
     } else {
-        klee_warning_once(F, "EMPTY KleeAssumeInstNext, CrashLine: %s\n", CrashLine.c_str());
+        klee_warning_once(F, "Empty CrashInsts, CrashLine: %s\n", CrashLine.c_str());
     }
-#endif
 
   switch (i->getOpcode()) {
     // Control flow
