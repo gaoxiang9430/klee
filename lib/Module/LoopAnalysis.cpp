@@ -184,6 +184,7 @@ static void processLoop(Function &F, DominatorTree &DT, LoopInfo &LI, Instructio
         BasicBlock* BB = Crash->getParent();
 
         TerminatorInst* T = BB->getTerminator();
+        TermInsts->insert(Crash);
         TermInsts->insert(T);
 
         std::set<llvm::BasicBlock*> CheckedBB;
@@ -315,7 +316,7 @@ bool LoopPrimary::runOnModule (Module &M) {
         return false;
     }
 
-    Instruction* CrashLast = CrashLineInsts.back();
+    Instruction* CrashLast = CrashLineInsts.front();
     Instruction* FixFront = FixLineInsts.front();
 
     for (auto &F: M)
