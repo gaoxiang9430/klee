@@ -574,8 +574,12 @@ Executor::setModule(std::vector<std::unique_ptr<llvm::Module>> &modules,
                       (Expr::Width)TD->getPointerSizeInBits());
 
 
-    std::string CrashFile = CrashLine.substr(0, CrashLine.find(":"));
-    int CrashLineNum = std::stoi(CrashLine.substr(CrashLine.find(":") + 1), nullptr);
+    auto idx = CrashLine.find(":");
+    if(idx == std::string::npos)
+        return kmodule->module.get();
+
+    std::string CrashFile = CrashLine.substr(0, idx);
+    int CrashLineNum = std::stoi(CrashLine.substr(idx + 1), nullptr);
     std::string AssumeLine = CrashFile + ":" + std::to_string(CrashLineNum);
     std::vector<llvm::Instruction*> AssumeInsts;
 
